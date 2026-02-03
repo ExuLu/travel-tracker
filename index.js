@@ -21,15 +21,49 @@ db.connect();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-app.get('/', async (req, res) => {
+const checkVisitedCountries = async function () {
   const result = await db.query('SELECT country_code FROM visited_countries');
-
-  const countries = [];
-  result.rows.forEach((country) => countries.push(country.country_code));
-  
   console.log(result.rows);
-  res.render('index.ejs', { countries: countries, total: countries.length });
-  db.end();
+
+  const visitedCountries = [];
+  result.rows.forEach((country) => visitedCountries.push(country.country_code));
+
+  return visitedCountries;
+};
+
+const getCountryCode = async function (countryName) {
+  const query = `SELECT country_code FROM countries WHERE country_name LIKE $1 || '%'`;
+  const countryCode = (await db.query(query, [countryName])).rows[0]
+    .country_code;
+
+  console.log(countryCode);
+  return countryCode;
+};
+
+const addNewCountry = async function (countryCode) {
+  const query = `INSERT INTO visited_countries(country_code) VALUES($1)`;
+  await db.query(query, [countryCode]);
+};
+
+app.get('/', async (req, res) => {
+  const visitedCountries = await checkVisitedCountries();
+
+  res.render('index.ejs', {
+    countries: visitedCountries,
+    total: visitedCountries.length,
+  });
+});
+
+app.post('/add', async (req, res) => {
+  const newCountry = req.body.country;
+  const countryCode = await getCountryCode(newCountry);
+  await addNewCountry(countryCode);
+  const visitedCountries = checkVisitedCountries();
+
+  res.render('index.ejs', {
+    countries: visitedCountries,
+    total: visitedCountries.length,
+  });
 });
 
 app.listen(port, () => {
