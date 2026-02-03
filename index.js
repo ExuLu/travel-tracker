@@ -23,7 +23,6 @@ app.use(express.static('public'));
 
 const checkVisitedCountries = async function () {
   const result = await db.query('SELECT country_code FROM visited_countries');
-  console.log(result.rows);
 
   const visitedCountries = [];
   result.rows.forEach((country) => visitedCountries.push(country.country_code));
@@ -33,10 +32,10 @@ const checkVisitedCountries = async function () {
 
 const getCountryCode = async function (countryName) {
   const query = `SELECT country_code FROM countries WHERE country_name LIKE $1 || '%'`;
-  const countryCode = (await db.query(query, [countryName])).rows[0]
-    .country_code;
+  const countryCode = (await db.query(query, [countryName])).rows?.at(
+    0,
+  )?.country_code;
 
-  console.log(countryCode);
   return countryCode;
 };
 
@@ -57,13 +56,11 @@ app.get('/', async (req, res) => {
 app.post('/add', async (req, res) => {
   const newCountry = req.body.country;
   const countryCode = await getCountryCode(newCountry);
-  await addNewCountry(countryCode);
-  const visitedCountries = checkVisitedCountries();
+  if (countryCode) {
+    await addNewCountry(countryCode);
+  }
 
-  res.render('index.ejs', {
-    countries: visitedCountries,
-    total: visitedCountries.length,
-  });
+  res.redirect('/');
 });
 
 app.listen(port, () => {
