@@ -31,10 +31,10 @@ const checkVisitedCountries = async function () {
 };
 
 const getCountryCode = async function (countryName) {
-  const query = `SELECT country_code FROM countries WHERE country_name LIKE $1 || '%'`;
-  const countryCode = (await db.query(query, [countryName])).rows?.at(
-    0,
-  )?.country_code;
+  const query = `SELECT country_code FROM countries WHERE LOWER(country_name) LIKE '%' || $1 || '%'`;
+  const countryCode = (
+    await db.query(query, [countryName.toLowerCase()])
+  ).rows.at(0).country_code;
 
   return countryCode;
 };
@@ -55,12 +55,29 @@ app.get('/', async (req, res) => {
 
 app.post('/add', async (req, res) => {
   const newCountry = req.body.country;
-  const countryCode = await getCountryCode(newCountry);
-  if (countryCode) {
-    await addNewCountry(countryCode);
+  try {
+    const countryCode = await getCountryCode(newCountry);
+    try {
+      await addNewCountry(countryCode);
+      res.redirect('/');
+    } catch (err) {
+      console.log(err);
+      const visitedCountries = await checkVisitedCountries();
+      res.render('index.ejs', {
+        countries: visitedCountries,
+        total: visitedCountries.length,
+        error: 'Country has already been added, try again.',
+      });
+    }
+  } catch (err) {
+    console.log(err);
+    const visitedCountries = await checkVisitedCountries();
+    res.render('index.ejs', {
+      countries: visitedCountries,
+      total: visitedCountries.length,
+      error: 'Country name does not exist, try again.',
+    });
   }
-
-  res.redirect('/');
 });
 
 app.listen(port, () => {
